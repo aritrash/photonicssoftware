@@ -5,7 +5,7 @@ import math
 from dataclasses import dataclass
 from typing import Tuple
 
-from ternaryops import Trit
+from photology_simulator.ternaryops import Trit
 
 
 @dataclass(frozen=True)

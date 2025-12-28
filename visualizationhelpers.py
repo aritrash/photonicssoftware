@@ -4,17 +4,17 @@ from __future__ import annotations
 from typing import Tuple
 
 import math
+import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401  (needed for 3D)
 
-from ternaryops import Trit
-from polarization_encoder import (
+from photology_simulator.ternaryops import Trit
+from photology_simulator.polarization_encoder import (
     PolarizationState,
     trit_to_angle_deg,
     trit_to_poincare_coords,
     jones_to_stokes,
 )
-
 
 # Simple color mapping for plotting
 TRIT_COLORS = {
@@ -22,7 +22,6 @@ TRIT_COLORS = {
     Trit.ZERO: "blue",
     Trit.PLUS: "green",
 }
-
 
 # ---------- 1) Angle-on-circle 3D plot ----------
 
@@ -68,29 +67,20 @@ def create_angle_circle_figure(
 
     return fig
 
-
 # ---------- 2) Poincaré sphere 3D plot ----------
 
 def _plot_unit_sphere(ax):
     """Draw a wireframe unit sphere on the given 3D axis."""
-    u = [i * math.pi / 30 for i in range(0, 31)]  # 0..pi
-    v = [i * 2 * math.pi / 30 for i in range(0, 31)]  # 0..2pi
-    xs = []
-    ys = []
-    zs = []
-    for uu in u:
-        row_x = []
-        row_y = []
-        row_z = []
-        for vv in v:
-            row_x.append(math.cos(vv) * math.sin(uu))
-            row_y.append(math.sin(vv) * math.sin(uu))
-            row_z.append(math.cos(uu))
-        xs.append(row_x)
-        ys.append(row_y)
-        zs.append(row_z)
-    ax.plot_wireframe(xs, ys, zs, color="lightgray", linewidth=0.5)
+    # Use numpy meshgrid so X, Y, Z are 2D arrays as required by plot_wireframe.[web:122]
+    u = np.linspace(0.0, np.pi, 31)        # polar angle
+    v = np.linspace(0.0, 2.0 * np.pi, 31)  # azimuthal angle
+    U, V = np.meshgrid(u, v)
 
+    X = np.cos(V) * np.sin(U)
+    Y = np.sin(V) * np.sin(U)
+    Z = np.cos(U)
+
+    ax.plot_wireframe(X, Y, Z, color="lightgray", linewidth=0.5)
 
 def create_poincare_figure(
     output_trit: Trit,
@@ -99,7 +89,7 @@ def create_poincare_figure(
     Create a 3D figure showing the Poincaré sphere with the three canonical
     ternary states and the current output state.
 
-    Uses Stokes / Poincaré mapping from polarization_encoding.[web:125][web:122]
+    Uses Stokes / Poincaré mapping from polarization_encoder.[web:125][web:122]
     """
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
@@ -124,7 +114,6 @@ def create_poincare_figure(
     ax.legend(loc="upper left", bbox_to_anchor=(1.05, 1.0))
 
     return fig
-
 
 # ---------- 3) 2D Jones-vector plot ----------
 
@@ -161,7 +150,6 @@ def create_jones_figure(
     fig.tight_layout()
     return fig
 
-
 # ---------- Convenience for GUI ----------
 
 def create_all_output_figures(
@@ -177,10 +165,8 @@ def create_all_output_figures(
     fig_jones = create_jones_figure(output_state)
     return fig_angle, fig_poincare, fig_jones
 
-
 if __name__ == "__main__":
-    # Simple smoke test
-    from polarization_encoder import encode_trit
+    from photology_simulator.polarization_encoder import encode_trit
 
     for t in (Trit.MINUS, Trit.ZERO, Trit.PLUS):
         state = encode_trit(t)

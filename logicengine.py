@@ -3,7 +3,7 @@
 from __future__ import annotations
 from typing import Callable, Dict
 
-from ternaryops import (
+from photology_simulator.ternaryops import (
     Trit,
     cyclic,
     negator,

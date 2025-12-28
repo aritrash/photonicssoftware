@@ -6,8 +6,8 @@ from typing import Dict, Tuple
 
 import math
 
-from ternaryops import Trit
-from polarization_encoder import (
+from photology_simulator.ternaryops import Trit
+from photology_simulator.polarization_encoder import (
     PolarizationState,
     trit_to_angle_deg,
 )
