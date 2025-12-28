@@ -1,6 +1,6 @@
 # Trine PICSIM
 
-**Trine PICSIM** (Trine Photonic Integrated Circuit SIMulator) is an experimental toolkit for simulating **balanced ternary logic** (−1, 0, +1) using **polarization‑encoded photonics** on silicon and silicon‑nitride platforms. It combines ternary logic primitives, simple subwavelength grating models, a triple‑channel polarization detector, and interactive visualizations in a PyQt6 desktop app.[web:61][web:111]  
+**Trine PICSIM** (Trine Photonic Integrated Circuit SIMulator) is an experimental toolkit for simulating **balanced ternary logic** (−1, 0, +1) using **polarization‑encoded photonics** on silicon and silicon‑nitride platforms. It combines ternary logic primitives, simple subwavelength grating models, a triple‑channel polarization detector, and interactive visualizations in a PyQt6 desktop app. 
 
 > Status: **Early beta** (`v1.0-beta.1`) — APIs and models will evolve as the underlying research progresses.  
 
