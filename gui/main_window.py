@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-
+import numpy as np
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QApplication,
@@ -38,18 +38,27 @@ from photology_simulator.visualizationhelpers import (
     create_all_output_figures,
 )
 
+# NEW: import comparison utilities
+from photology_simulator.comparison_results import (
+    PhotonicTechParams,
+    ElectronicTechParams,
+    compare_function_delays,
+    plot_delay_comparison,
+    plot_TER_vs_angle_noise,
+)
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Photology Simulator")
+        self.setWindowTitle("Trine PICSIM v1.0-beta.2")
 
         self.detector = TripleChannelDetector.default()
 
         tab_widget = QTabWidget()
         tab_widget.addTab(self._create_grating_tab(), "Grating")
         tab_widget.addTab(self._create_logic_tab(), "Logic")
+        tab_widget.addTab(self._create_comparison_tab(), "Comparison")  # NEW
 
         self.setCentralWidget(tab_widget)
         self.resize(1200, 700)
@@ -170,7 +179,6 @@ class MainWindow(QMainWindow):
         self.fig_poincare = None
         self.fig_jones = None
 
-        # Create empty figures and canvases
         import matplotlib.pyplot as plt
 
         self.fig_angle = plt.figure()
@@ -285,13 +293,11 @@ class MainWindow(QMainWindow):
         self.fig_jones.clf()
 
         # Create new plots on the same figure objects
-        # We can reuse the helper by passing figures, or simplest: regenerate
         fig_angle, fig_poincare, fig_jones = create_all_output_figures(
             out_trit, out_state
         )
 
         # Draw onto our existing canvases:
-        # Replace the figure objects underlying the canvases
         self.canvas_angle.figure = fig_angle
         self.canvas_poincare.figure = fig_poincare
         self.canvas_jones.figure = fig_jones
@@ -299,6 +305,137 @@ class MainWindow(QMainWindow):
         self.canvas_angle.draw()
         self.canvas_poincare.draw()
         self.canvas_jones.draw()
+
+    # ---------- Comparison tab (NEW) ----------
+
+    def _create_comparison_tab(self) -> QWidget:
+        """
+        Comparative analysis tab: structural delay and TER estimation.
+        """
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+
+        # Top controls: function selection and wavelength range
+        control_layout = QHBoxLayout()
+
+        self.comp_func_combo = QComboBox()
+        # Allow all logic functions plus HA/FA
+        base_funcs = list_unary_functions() + list_binary_functions()
+        extra_funcs = ["HA", "FA"]
+        self.comp_func_combo.addItems(base_funcs + extra_funcs)
+
+        self.comp_lambda_min = QDoubleSpinBox()
+        self.comp_lambda_min.setRange(200.0, 5000.0)
+        self.comp_lambda_min.setValue(1300.0)
+        self.comp_lambda_min.setSuffix(" nm")
+
+        self.comp_lambda_max = QDoubleSpinBox()
+        self.comp_lambda_max.setRange(200.0, 5000.0)
+        self.comp_lambda_max.setValue(1700.0)
+        self.comp_lambda_max.setSuffix(" nm")
+
+        # Angle noise σ (deg) for TER plot
+        self.comp_noise_spin = QDoubleSpinBox()
+        self.comp_noise_spin.setRange(0.0, 20.0)
+        self.comp_noise_spin.setDecimals(2)
+        self.comp_noise_spin.setValue(2.0)
+        self.comp_noise_spin.setSuffix(" deg")
+
+        run_comp_button = QPushButton("Run comparison")
+        run_comp_button.clicked.connect(self.on_run_comparison_clicked)
+
+        control_layout.addWidget(QLabel("Function:"))
+        control_layout.addWidget(self.comp_func_combo)
+        control_layout.addWidget(QLabel("λ min:"))
+        control_layout.addWidget(self.comp_lambda_min)
+        control_layout.addWidget(QLabel("λ max:"))
+        control_layout.addWidget(self.comp_lambda_max)
+        control_layout.addWidget(QLabel("Angle noise σ:"))
+        control_layout.addWidget(self.comp_noise_spin)
+        control_layout.addWidget(run_comp_button)
+        control_layout.addStretch()
+
+        layout.addLayout(control_layout)
+
+        # Numeric delay results
+        self.comp_pho_label = QLabel("Photonic delay: -")
+        self.comp_elec_label = QLabel("Electronic delay: -")
+        self.comp_ratio_label = QLabel("Delay ratio (pho/elec): -")
+
+        layout.addWidget(self.comp_pho_label)
+        layout.addWidget(self.comp_elec_label)
+        layout.addWidget(self.comp_ratio_label)
+
+        # Matplotlib canvases for comparison plots
+        plots_layout = QHBoxLayout()
+
+        import matplotlib.pyplot as plt
+
+        self.fig_delay_comp = plt.figure()
+        self.canvas_delay_comp = FigureCanvas(self.fig_delay_comp)
+
+        self.fig_ter = plt.figure()
+        self.canvas_ter = FigureCanvas(self.fig_ter)
+
+        plots_layout.addWidget(self.canvas_delay_comp)
+        plots_layout.addWidget(self.canvas_ter)
+
+        layout.addLayout(plots_layout)
+        layout.addStretch()
+
+        return widget
+
+    def on_run_comparison_clicked(self):
+        """
+        Slot for the 'Run comparison' button in the Comparison tab.
+        """
+        func_name = self.comp_func_combo.currentText()
+
+        # Build technology parameter objects (later you can expose more controls)
+        pho_params = PhotonicTechParams(
+            wavelength_m=float(self.lambda_spin.value()) * 1e-9,
+            # you can tweak pipeline_depth etc. here if desired
+        )
+        elec_params = ElectronicTechParams()
+
+        # Numeric delays at the current central wavelength
+        pho_delays, elec_delay = compare_function_delays(
+            func_name, pho_params, elec_params
+        )
+
+        pho_total_ps = pho_delays["total"] * 1e12
+        elec_total_ps = elec_delay * 1e12
+        ratio = pho_total_ps / elec_total_ps if elec_total_ps > 0 else float("inf")
+
+        self.comp_pho_label.setText(f"Photonic delay (total): {pho_total_ps:.2f} ps")
+        self.comp_elec_label.setText(f"Electronic delay (total): {elec_total_ps:.2f} ps")
+        self.comp_ratio_label.setText(f"Delay ratio (pho/elec): {ratio:.2f}")
+
+        # Delay vs wavelength plot (structural model)
+        lam_min = float(self.comp_lambda_min.value()) * 1e-9
+        lam_max = float(self.comp_lambda_max.value()) * 1e-9
+        lam_vec = np.linspace(lam_min, lam_max, 50)
+
+        self.fig_delay_comp.clf()
+        fig_delay = plot_delay_comparison(
+            func_name, pho_params, elec_params, lam_vec
+        )
+        self.canvas_delay_comp.figure = fig_delay
+        self.canvas_delay_comp.draw()
+
+        # TER vs angle noise plot (threshold-crossing model)
+        noise_sigma = float(self.comp_noise_spin.value())
+        noise_list = np.linspace(0.0, max(0.1, noise_sigma * 2.0), 8)
+
+        self.fig_ter.clf()
+        fig_ter = plot_TER_vs_angle_noise(
+            noise_std_deg_list=list(noise_list),
+            decision_margin_deg=45.0,
+            trials=3000,
+        )
+        self.canvas_ter.figure = fig_ter
+        self.canvas_ter.draw()
+
 
 
 def main():
