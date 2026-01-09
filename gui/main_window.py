@@ -47,6 +47,9 @@ from photology_simulator.comparison_results import (
     plot_TER_vs_angle_noise,
 )
 
+from photology_simulator.TrineDSL import run_source, Env
+from PyQt6 import QtWidgets
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -55,12 +58,13 @@ class MainWindow(QMainWindow):
 
         self.detector = TripleChannelDetector.default()
 
-        tab_widget = QTabWidget()
-        tab_widget.addTab(self._create_grating_tab(), "Grating")
-        tab_widget.addTab(self._create_logic_tab(), "Logic")
-        tab_widget.addTab(self._create_comparison_tab(), "Comparison")  # NEW
+        self.tab_widget = QTabWidget()
+        self.tab_widget.addTab(self._create_grating_tab(), "Grating")
+        self.tab_widget.addTab(self._create_logic_tab(), "Logic")
+        self.tab_widget.addTab(self._create_comparison_tab(), "Comparison")
+        self.tab_widget.addTab(self._create_trinedsl_tab(), "Terminal")
 
-        self.setCentralWidget(tab_widget)
+        self.setCentralWidget(self.tab_widget)
         self.resize(1200, 700)
 
     # ---------- Grating tab ----------
@@ -435,6 +439,82 @@ class MainWindow(QMainWindow):
         )
         self.canvas_ter.figure = fig_ter
         self.canvas_ter.draw()
+
+        # ---------- TrineDSL "Terminal" tab ----------
+    
+
+    def _create_trinedsl_tab(self) -> QWidget:
+        """
+        Terminal-like tab for running TrineDSL code.
+        Text editor on top, output screen at bottom.
+        """
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+
+        # Top: code editor (70% height)
+        self.dsl_editor = QtWidgets.QPlainTextEdit(widget)
+        self.dsl_editor.setPlaceholderText(
+            "// TrineDSL example\n"
+            "trit A, B, S, C;\n"
+            "A = -1;\n"
+            "B = +1;\n"
+            "S = TSUM(A, B);\n"
+            "C = TCARRY(A, B);\n"
+        )
+        editor_font = self.dsl_editor.font()
+        editor_font.setFamily("Consolas")
+        editor_font.setPointSize(10)
+        self.dsl_editor.setFont(editor_font)
+
+        # Button row
+        button_layout = QHBoxLayout()
+        self.dsl_run_button = QPushButton("Run", widget)
+        self.dsl_run_button.clicked.connect(self.on_run_trinedsl)
+        self.dsl_clear_button = QPushButton("Clear", widget)
+        self.dsl_clear_button.clicked.connect(self.dsl_editor.clear)
+
+        button_layout.addWidget(self.dsl_run_button)
+        button_layout.addWidget(self.dsl_clear_button)
+        button_layout.addStretch(1)
+
+        # Bottom: output screen (30% height)
+        self.dsl_output = QtWidgets.QPlainTextEdit(widget)
+        self.dsl_output.setReadOnly(True)
+        out_font = self.dsl_output.font()
+        out_font.setFamily("Consolas")
+        out_font.setPointSize(10)
+        self.dsl_output.setFont(out_font)
+
+        # Approximate 70/30 split via stretch factors
+        layout.addWidget(self.dsl_editor, stretch=7)
+        layout.addLayout(button_layout)
+        layout.addWidget(self.dsl_output, stretch=3)
+
+        return widget
+
+    def on_run_trinedsl(self):
+        """
+        Execute TrineDSL code from the editor and show results or errors
+        in the output pane.
+        """
+        src = self.dsl_editor.toPlainText()
+        self.dsl_output.clear()
+
+        try:
+            env = run_source(src, env=None)
+        except Exception as e:
+            # Later replace str(e) with your formatted TrineDSL error message
+            self.dsl_output.setPlainText(str(e))
+            return
+
+        # On success, show all variable values
+        if not env.vars:
+            self.dsl_output.setPlainText("(no variables declared)")
+            return
+
+        lines = [f"{name} = {value}" for name, value in env.vars.items()]
+        self.dsl_output.setPlainText("\n".join(lines))
+
 
 
 
