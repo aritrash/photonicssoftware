@@ -61,6 +61,36 @@
   - `PolarizationState`  
   - Ideal trits (for round‑trip tests)  
 
+### TrineDSL: small ternary DSL
+
+- **TrineDSL** is a minimal domain‑specific language for scripting ternary logic experiments inside Trine PICSIM. 
+- Core syntax:
+  - Declarations: `trit a, b, c;`  
+  - Assignments: `a = TAND(b, +1);`  
+  - Expressions over:
+    - Trit literals: `-1`, `0`, `+1`  
+    - Variable names  
+    - Function calls: `C(x)`, `TAND(x, y)`, `TXOR(a, b)`, `TSUM(a, b)`, `TCARRY(a, b)`   
+- Implementation:
+  - `TrineDSL/lexer.py` — tokenizes identifiers, keywords, trit literals, symbols, and `//` comments.  
+  - `TrineDSL/parser.py` — recursive‑descent parser building an AST of declarations, assignments, and expressions.  
+  - `TrineDSL/interp.py` — interpreter that evaluates the AST in an environment of trit variables using the core operators.   
+
+#### Structured TrineDSL error reporting
+
+- Unified error types in `TrineDSL/errors.py`:
+  - `TrineDSLLexError`, `TrineDSLParseError`, `TrineDSLRuntimeError`, all derived from `TrineDSLError`.  
+- Standard format for all DSL errors:
+  - `<Error_Type>:<Error_statement>`  
+    `    in line <line#>: <line_with_error>`  
+    `    <error_desc>`  
+- Lexing and parsing errors include:
+  - Line/column and offending line text (computed from character offsets in the source).  
+- Runtime errors cover:
+  - Redeclaration and use of undeclared variables.  
+  - Invalid trit values and wrong function arity.  
+  - Unknown function names. 
+
 ### Visualization helpers
 
 - `visualizationhelpers` module (Matplotlib) for:
@@ -96,6 +126,17 @@
     - Angle circle  
     - Poincaré sphere  
     - Jones vector  
+  - **Comparison tab**
+    - Function selector covering unary/binary gates and macro‑blocks (e.g.\ HA, FA).  
+    - Plots structural photonic vs.\ CMOS delay versus wavelength.  
+    - Plots Trit Error Rate (TER) versus polarization noise for a selected decision margin.  
+  - **Terminal tab**
+    - Text area for entering TrineDSL programs.  
+    - Run button that parses, evaluates, and prints either:
+      - Final environment state.  
+      - Structured TrineDSL error messages. 
+
+---
 
 ---
 
@@ -187,6 +228,27 @@ Names may differ slightly depending on how you organized the files, but the role
      - The Poincaré sphere  
      - The Jones‑vector plot  
 
+### 3. Run TrineDSL snippets
+1. Open the Terminal tab.
+2. Enter a small TrineDSL program, for example:
+```bash
+trit a, b, c;
+a = +1;
+b = -1;
+c = TXOR(a, b);
+```
+3. Press Run.
+4. Inspect:
+  - Final variable values in the environment.
+  - Any structured error messages if the program contains syntax or runtime issues. 
+
+### 4. Compare photonic vs CMOS timing
+1. Switch to the Comparison tab.
+2. Select a function (e.g. TNOT, HA, or FA).
+3. Configure wavelength range and noise parameters.
+4. Inspect plots of:
+  - Photonic vs.\ CMOS structural delay versus wavelength.
+  - TER versus polarization-angle noise. 
 ---
 
 ## Limitations and future work
@@ -199,6 +261,9 @@ Names may differ slightly depending on how you organized the files, but the role
 - Gate set is **minimal**:
   - Only core ternary operations (Cyclic, Negator, Antinegator, TNOT, TAND, TNAND).  
   - No ternary adders, MUX/DEMUX, or complex gate networks yet.  
+- TrineDSL:
+  - No control flow (loops/branches) or user‑defined functions yet.
+  - Runtime error locations are coarse and will be refined once AST nodes carry source spans.
 - No **project persistence**:
   - Simulations cannot yet be saved/loaded as project files; figure metadata export is not implemented.  
 - Platform focus:
@@ -208,7 +273,8 @@ Names may differ slightly depending on how you organized the files, but the role
 
 - Add microring‑based device models and gate layouts.  
 - Extend gate library (ternary half‑adders, full adders, multiplexers, memory).  
-- Improve grating/detector realism (better material models, device‑specific calibration).  
+- Improve grating/detector realism (better material models, device‑specific calibration). 
+- Expand TrineDSL with richer syntax and deeper integration with the Comparison tab 
 - Project save/load and parameter export for reproducible research.  
 
 ---
