@@ -54,7 +54,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Trine PICSIM v1.0-beta.2")
+        self.setWindowTitle("Trine PICSIM v1.0-beta.3")
 
         self.detector = TripleChannelDetector.default()
 
